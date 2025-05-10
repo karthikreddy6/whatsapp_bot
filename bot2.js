@@ -2,6 +2,7 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const admin = require('firebase-admin');
 const qrcode = require('qrcode-terminal'); // Import QR code terminal
+const fs = require('fs'); // For file system operations
 const serviceAccount = require('./onfood-adminsdk.json'); // Your Firebase SDK service account
 
 // 2. Initialize Firebase Admin with your provided URL
@@ -38,7 +39,27 @@ client.on('error', (error) => {
 });
 
 // 6. Firebase Realtime DB - Listen for New Orders and Status Changes
-let lastProcessedTimestamp = 0; // To store the timestamp of the last processed order
+let lastProcessedTimestamp = 0; // Variable to store the timestamp of the last processed order
+
+// Try to load the last processed timestamp from a local file to persist data across restarts
+const loadLastProcessedTimestamp = () => {
+    try {
+        const data = fs.readFileSync('lastProcessedTimestamp.json', 'utf8');
+        const parsedData = JSON.parse(data);
+        return parsedData.timestamp || 0; // If no data found, return 0
+    } catch (error) {
+        return 0; // If file doesn't exist or there's an error, return 0
+    }
+};
+
+// Save the last processed timestamp to a local file
+const saveLastProcessedTimestamp = (timestamp) => {
+    const data = { timestamp };
+    fs.writeFileSync('lastProcessedTimestamp.json', JSON.stringify(data), 'utf8');
+};
+
+// Initialize the last processed timestamp on server startup
+lastProcessedTimestamp = loadLastProcessedTimestamp();
 
 function listenForOrders() {
     const ordersRef = db.ref('Orders'); // Reference to the "Orders" node in Firebase
@@ -48,12 +69,16 @@ function listenForOrders() {
     ordersRef.on('child_added', async (snapshot) => {
         const order = snapshot.val(); // Get order data from Firebase
 
+        // Skip processing if the order's timestamp is less than or equal to the last processed timestamp
         if (!order || order.timestamp <= lastProcessedTimestamp) {
-            return; // Skip if the order is older than the last processed order
+            return;
         }
 
         // Update lastProcessedTimestamp to ensure future orders are only processed once
         lastProcessedTimestamp = order.timestamp;
+
+        // Save the updated timestamp to the file for persistence across restarts
+        saveLastProcessedTimestamp(lastProcessedTimestamp);
 
         const userPhone = order.userPhone;
         const username = order.username;
@@ -87,7 +112,10 @@ function listenForOrders() {
     ordersRef.on('child_changed', async (snapshot) => {
         const order = snapshot.val(); // Get order data from Firebase
 
-        if (!order || order.timestamp <= lastProcessedTimestamp) return; // Skip if order timestamp is older than last processed
+        // Skip processing if the order's timestamp is less than or equal to the last processed timestamp
+        if (!order || order.timestamp <= lastProcessedTimestamp) {
+            return;
+        }
 
         const userPhone = order.userPhone;
         const username = order.username;
@@ -118,6 +146,9 @@ function listenForOrders() {
 
             // Update lastProcessedTimestamp to ensure we don't process the same order again
             lastProcessedTimestamp = order.timestamp;
+
+            // Save the updated timestamp to the file for persistence across restarts
+            saveLastProcessedTimestamp(lastProcessedTimestamp);
 
         } catch (error) {
             console.error(`❌ Failed to send status update message to ${userPhone}:`, error);
