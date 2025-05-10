@@ -32,25 +32,35 @@ client.on('ready', () => {
     listenForOrders(); // Call function to listen for new orders
 });
 
-client.initialize();
+// Error handling for WhatsApp client connection issues
+client.on('error', (error) => {
+    console.error('WhatsApp client encountered an error:', error);
+});
 
-// 6. Firebase Realtime DB - Listen for New Orders
+// 6. Firebase Realtime DB - Listen for New Orders and Status Changes
+let processedOrders = new Set(); // Set to track processed orders (avoiding re-sending messages)
+
 function listenForOrders() {
     const ordersRef = db.ref('Orders'); // Reference to the "Orders" node in Firebase
-    console.log('Listening for new orders...');
+    console.log('Listening for new orders and status updates...');
 
-    // Listen for newly added orders
+    // Listen for newly added orders (Live Orders)
     ordersRef.on('child_added', async (snapshot) => {
         const order = snapshot.val(); // Get order data from Firebase
 
-        if (!order) return; // Skip if there's no order data
+        if (!order || processedOrders.has(snapshot.key)) {
+            return; // Skip if there's no order data or order has already been processed
+        }
 
-        const userPhone = order.userPhone; // Get user phone number from the order
-        const username = order.username; // Get user name from the order
-        const orderDate = order.orderDate; // Order date
-        const orderTime = order.orderTime; // Order time
-        const status = order.status; // Order status
-        const items = order.items; // Items in the order
+        // Mark the order as processed to avoid sending duplicate messages on restart
+        processedOrders.add(snapshot.key);
+
+        const userPhone = order.userPhone;
+        const username = order.username;
+        const orderDate = order.orderDate;
+        const orderTime = order.orderTime;
+        const status = order.status;
+        const items = order.items;
 
         // Format items text
         let itemsText = '';
@@ -69,8 +79,59 @@ function listenForOrders() {
             await client.sendMessage(whatsappNumber, message);
             console.log(`✅ Order message sent to ${userPhone}`);
         } catch (error) {
-            // Handle any errors while sending message
             console.error(`❌ Failed to send message to ${userPhone}:`, error);
         }
     });
+
+    // Listen for updates to existing orders (Order Status Changes)
+    ordersRef.on('child_changed', async (snapshot) => {
+        const order = snapshot.val(); // Get order data from Firebase
+
+        if (!order) return; // Skip if there's no order data
+
+        const userPhone = order.userPhone;
+        const username = order.username;
+        const orderDate = order.orderDate;
+        const orderTime = order.orderTime;
+        const newStatus = order.status;
+
+        const whatsappNumber = `91${userPhone}@c.us`; // Format phone number for WhatsApp
+
+        try {
+            if (newStatus === 'Confirmed' && order.previousStatus !== 'Confirmed') {
+                // Order status changed from "New" to "Confirmed"
+                const confirmMessage = `✅ *Your order has been confirmed!* We'll begin preparing your food soon.`;
+                await client.sendMessage(whatsappNumber, confirmMessage);
+                console.log(`✅ Sent order confirmation message to ${userPhone}`);
+            }
+
+            if (newStatus === 'Cooking' && order.previousStatus !== 'Cooking') {
+                // Order status changed to "Cooking"
+                const cookingMessage = `🍳 *Your order is now being prepared!* We'll notify you once it's ready for delivery.`;
+                await client.sendMessage(whatsappNumber, cookingMessage);
+                console.log(`✅ Sent cooking message to ${userPhone}`);
+            }
+
+            if (newStatus === 'Delivered' && order.previousStatus !== 'Delivered') {
+                // Order status changed to "Delivered"
+                const deliveredMessage = `🎉 *Thank you for your order! We hope you enjoyed your meal. Come back soon!*`;
+                await client.sendMessage(whatsappNumber, deliveredMessage);
+                console.log(`✅ Sent thank you message to ${userPhone}`);
+            }
+
+            // Update the order's previousStatus for the next comparison
+            order.previousStatus = newStatus;
+            await db.ref(`Orders/${snapshot.key}`).update({ previousStatus: newStatus });
+
+        } catch (error) {
+            console.error(`❌ Failed to send status update message to ${userPhone}:`, error);
+        }
+    });
+
+    // Handle any Firebase connection errors
+    ordersRef.on('error', (error) => {
+        console.error('Firebase Realtime DB error:', error);
+    });
 }
+
+client.initialize();
