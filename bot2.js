@@ -38,7 +38,7 @@ client.on('error', (error) => {
 });
 
 // 6. Firebase Realtime DB - Listen for New Orders and Status Changes
-let processedOrders = new Set(); // Set to track processed orders (avoiding re-sending messages)
+let lastProcessedTimestamp = 0; // To store the timestamp of the last processed order
 
 function listenForOrders() {
     const ordersRef = db.ref('Orders'); // Reference to the "Orders" node in Firebase
@@ -48,12 +48,12 @@ function listenForOrders() {
     ordersRef.on('child_added', async (snapshot) => {
         const order = snapshot.val(); // Get order data from Firebase
 
-        if (!order || processedOrders.has(snapshot.key)) {
-            return; // Skip if there's no order data or order has already been processed
+        if (!order || order.timestamp <= lastProcessedTimestamp) {
+            return; // Skip if the order is older than the last processed order
         }
 
-        // Mark the order as processed to avoid sending duplicate messages on restart
-        processedOrders.add(snapshot.key);
+        // Update lastProcessedTimestamp to ensure future orders are only processed once
+        lastProcessedTimestamp = order.timestamp;
 
         const userPhone = order.userPhone;
         const username = order.username;
@@ -87,7 +87,7 @@ function listenForOrders() {
     ordersRef.on('child_changed', async (snapshot) => {
         const order = snapshot.val(); // Get order data from Firebase
 
-        if (!order) return; // Skip if there's no order data
+        if (!order || order.timestamp <= lastProcessedTimestamp) return; // Skip if order timestamp is older than last processed
 
         const userPhone = order.userPhone;
         const username = order.username;
@@ -98,30 +98,26 @@ function listenForOrders() {
         const whatsappNumber = `91${userPhone}@c.us`; // Format phone number for WhatsApp
 
         try {
-            if (newStatus === 'Confirmed' && order.previousStatus !== 'Confirmed') {
-                // Order status changed from "New" to "Confirmed"
+            // Handle different status changes
+            if (newStatus === 'confirmed') {
+                // Order is confirmed
                 const confirmMessage = `✅ *Your order has been confirmed!* We'll begin preparing your food soon.`;
                 await client.sendMessage(whatsappNumber, confirmMessage);
-                console.log(`✅ Sent order confirmation message to ${userPhone}`);
-            }
-
-            if (newStatus === 'Cooking' && order.previousStatus !== 'Cooking') {
-                // Order status changed to "Cooking"
+                console.log(`✅ Sent confirmation message to ${userPhone}`);
+            } else if (newStatus === 'cooking') {
+                // Order is being cooked
                 const cookingMessage = `🍳 *Your order is now being prepared!* We'll notify you once it's ready for delivery.`;
                 await client.sendMessage(whatsappNumber, cookingMessage);
                 console.log(`✅ Sent cooking message to ${userPhone}`);
-            }
-
-            if (newStatus === 'Delivered' && order.previousStatus !== 'Delivered') {
-                // Order status changed to "Delivered"
-                const deliveredMessage = `🎉 *Thank you for your order! We hope you enjoyed your meal. Come back soon!*`;
+            } else if (newStatus === 'delivered') {
+                // Order is delivered
+                const deliveredMessage = `🎉 *Thank you for your order!* We hope you enjoyed your meal. Come back soon!`;
                 await client.sendMessage(whatsappNumber, deliveredMessage);
                 console.log(`✅ Sent thank you message to ${userPhone}`);
             }
 
-            // Update the order's previousStatus for the next comparison
-            order.previousStatus = newStatus;
-            await db.ref(`Orders/${snapshot.key}`).update({ previousStatus: newStatus });
+            // Update lastProcessedTimestamp to ensure we don't process the same order again
+            lastProcessedTimestamp = order.timestamp;
 
         } catch (error) {
             console.error(`❌ Failed to send status update message to ${userPhone}:`, error);
