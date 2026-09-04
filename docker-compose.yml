@@ -23,5 +23,3 @@ services:
       - ./.wwebjs_auth:/app/.wwebjs_auth
       # Persist session cache
       - ./.wwebjs_cache:/app/.wwebjs_cache
-      # Persist bot log file
-      - ./bot.log:/app/bot.log

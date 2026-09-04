@@ -9,18 +9,35 @@ require('firebase/compat/database');
 const qrcode = require('qrcode-terminal');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 
-const logFile = path.join(__dirname, 'bot.log');
-const logStream = fs.createWriteStream(logFile, { flags: 'a' });
+let logFile = path.join(__dirname, 'bot.log');
+try {
+  if (fs.existsSync(logFile) && fs.statSync(logFile).isDirectory()) {
+    logFile = path.join(logFile, 'bot.log');
+  }
+} catch (e) {}
+
+let logStream = null;
+try {
+  logStream = fs.createWriteStream(logFile, { flags: 'a' });
+  logStream.on('error', (err) => {
+    // Prevent unhandled error event from crashing the server
+  });
+} catch (e) {}
+
 for (const level of ['log', 'warn', 'error']) {
   const original = console[level].bind(console);
   console[level] = (...args) => {
     original(...args);
-    const line = args.map(value => {
-      if (value instanceof Error) return value.stack || value.message;
-      if (typeof value === 'string') return value;
-      try { return JSON.stringify(value); } catch { return String(value); }
-    }).join(' ');
-    logStream.write(`[${new Date().toISOString()}] [${level}] ${line}\n`);
+    if (logStream && !logStream.destroyed) {
+      const line = args.map(value => {
+        if (value instanceof Error) return value.stack || value.message;
+        if (typeof value === 'string') return value;
+        try { return JSON.stringify(value); } catch { return String(value); }
+      }).join(' ');
+      try {
+        logStream.write(`[${new Date().toISOString()}] [${level}] ${line}\n`);
+      } catch (writeErr) {}
+    }
   };
 }
 

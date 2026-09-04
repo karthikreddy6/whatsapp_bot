@@ -71,7 +71,6 @@ docker run -d \
   -p 3000:3000 \
   --shm-size=1g \
   -v ${PWD}/.wwebjs_auth:/app/.wwebjs_auth \
-  -v ${PWD}/bot.log:/app/bot.log \
   onfood-whatsapp-bot
 ```
 
