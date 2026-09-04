@@ -1,0 +1,115 @@
+# OnFood - Database Organization & Data Schema
+
+This document provides a complete map of how data is organized across Cloud Firebase and local storage in the OnFood application.
+
+---
+
+## 1. Firebase Authentication
+*   **Purpose:** Secure user login and registration.
+*   **Data Stored:** Email and hashed password.
+*   **Key Identifier:** `UID` (Unique Identifier) - This ID is used to link data across all other database nodes.
+
+---
+
+## 2. Cloud Firestore (NoSQL Document Store)
+Firestore handles the core "Catalog" data and primary user profile metadata.
+
+### Collection: `Users`
+*   **Document ID:** User `UID`
+*   **Fields:**
+    *   `userId` (String): The Firebase UID.
+    *   `email` (String): User's registration email.
+    *   `name` (String): Full name (Syncs with local profile).
+    *   `phone` (String): Contact number (Syncs with local profile).
+
+### Collection: `MenuItem` (Popular Menu)
+*   **Document ID:** Auto-generated ID.
+*   **Fields:**
+    *   `name` (String): Food item name.
+    *   `price` (Number): Item price.
+    *   `category` (String): e.g., "Tiffins", "Drinks".
+    *   `imageUrl` (String): Link to the food image.
+
+### Collection: `SplMenuItem` (Special Offers)
+*   **Structure:** Identical to `MenuItem`. Used for the horizontal scrolling header.
+
+---
+
+## 3. Firebase Realtime Database (JSON Tree)
+Used for high-speed, live updates like order tracking and support tickets.
+
+### Node: `Orders`
+*   **Child ID:** 12-Character Unique ID (Format: 4 Letters + 8 Digits, e.g., `ABCD12345678`).
+*   **Fields:**
+    *   `userId` (String): UID of the buyer.
+    *   `username` / `userPhone` (String): Captured at moment of order.
+    *   `amount` (Double): Final total price paid.
+    *   `status` (String): "Pending", "Preparing", "Cooking", "Out for Delivery", "Delivered".
+    *   `orderDate` / `orderTime` (String): Human-readable timestamp.
+    *   `timestamp` (Long): System millisecond time.
+    *   `etaTimestamp` (Long): The exact deadline for delivery (Timestamp + Buffering Time).
+    *   `items` (Map): Nested list of `item1`, `item2`, etc., containing names, unit prices, and quantities.
+
+### Node: `Tickets` (Support System)
+*   **Child ID:** Same as the **Order ID** (Enforces "One Order, One Ticket" rule).
+*   **Fields:**
+    *   `userId` (String): UID of the user.
+    *   `orderId` (String): The linked order.
+    *   `description` (String): User's issue description.
+    *   `status` (String): "Open" or "Resolved".
+    *   `timestamp` (Long): When the ticket was raised.
+
+### Node: `buffering_time`
+*   **Field:** `time` (Number): Global setting for delivery estimation (Default: 20.0).
+
+---
+
+## 4. Local Storage (Android SharedPreferences)
+Data stored strictly on the user's phone for speed and offline access.
+
+### Name: `UserProfile`
+*   `name` / `phone` (String): Cached user info for instant loading.
+*   `profilePic` (String): Local file path to the user's avatar image (stored in app's private internal folder).
+
+### Name: `cart_prefs`
+*   `cart_items` (JSON String): List of current basket items (persists even if app is closed).
+
+---
+
+## Data Flow Summary
+1.  **Ordering:** OrderManager calculates **ETA** using `buffering_time`, generates a **12-char ID**, and pushes to `Orders`.
+2.  **Tracking:** HomeFragment listens to `Orders` and sends a **Local Notification** if `status` changes.
+3.  **Support:** User raises a ticket from Order History; it is stored in `Tickets` keyed by the `Order ID` to prevent duplicates.
+
+---
+
+## 5. Customer Support Dashboard Backend
+The Node server in `index.js` is the operational backend for the canteen support desk.
+
+### Server Responsibilities
+*   Hosts the dashboard at `http://localhost:3000/dashboard.html`.
+*   Listens to Realtime Database `Orders`, `Tickets`, and `buffering_time/time`.
+*   Broadcasts live dashboard updates through Socket.IO.
+*   Lets support staff update order status, set per-order ETA, resolve tickets, and change the global ETA buffer.
+*   Sends WhatsApp updates when order status changes.
+
+### Operational Metrics
+*   **Active Orders:** Orders not marked `Delivered` or `Cancelled`.
+*   **Last 2 Hours:** Orders where `timestamp` is within the latest two-hour support window.
+*   **Open Tickets:** Tickets where `status` is not `Resolved`.
+*   **Average Delivery:** Recent delivered orders measured from `timestamp` to `deliveredAt`.
+*   **Late Orders:** Active orders where `etaTimestamp` is older than current server time.
+
+### Bot / Agent Layer
+The first support version is rule based so it can run without paid AI services:
+*   `status ORDERID` replies with order status.
+*   `eta ORDERID` replies with estimated pickup time.
+*   `help ORDERID issue text` opens/updates a ticket in `Tickets`.
+
+Future AI support can be added behind this same intent layer after the basic flow is stable.
+
+### Recommended Order Fields
+Add these fields from the dashboard/server when possible:
+*   `updatedAt` (Long): Latest server-side status change time.
+*   `readyAt` (Long): Set when status becomes `Ready for Pickup`.
+*   `deliveredAt` (Long): Set when status becomes `Delivered`.

@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+bot.log
+server.err.log
+server.out.log
+*.log
+.git
+.gitignore
+.agents
+.env
+.env.local
+.wwebjs_auth
+.wwebjs_cache
+.wwebjs_cache*

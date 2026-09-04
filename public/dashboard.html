@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OnFood Support Dashboard</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div>
+      <h1>OnFood</h1>
+      <p>Canteen support</p>
+    </div>
+    <nav>
+      <a href="#orders">Orders</a>
+      <a href="#tickets">Tickets</a>
+      <a href="#settings">ETA</a>
+    </nav>
+    <div class="connection" id="connection">Connecting</div>
+  </aside>
+
+  <main>
+    <section class="topbar">
+      <div>
+        <h2>Customer Support</h2>
+        <p>Live WhatsApp backend, order status, tickets, and pickup readiness.</p>
+      </div>
+      <div class="clock" id="clock"></div>
+    </section>
+
+    <section class="metrics" aria-label="Support metrics">
+      <article>
+        <span>Active orders</span>
+        <strong id="activeOrders">0</strong>
+      </article>
+      <article>
+        <span>Last 2 hours</span>
+        <strong id="recentOrders">0</strong>
+      </article>
+      <article>
+        <span>Open tickets</span>
+        <strong id="openTickets">0</strong>
+      </article>
+      <article>
+        <span>Avg delivery</span>
+        <strong id="avgDelivery">0m</strong>
+      </article>
+      <article class="danger">
+        <span>Late orders</span>
+        <strong id="lateOrders">0</strong>
+      </article>
+    </section>
+
+    <section class="panel" id="orders">
+      <div class="panel-title">
+        <div>
+          <h3>Live Orders</h3>
+          <p>Update kitchen progress and send WhatsApp status messages automatically.</p>
+        </div>
+        <select id="statusFilter" aria-label="Filter orders by status">
+          <option value="">All statuses</option>
+          <option>Pending</option>
+          <option>Preparing</option>
+          <option>Cooking</option>
+          <option>Ready for Pickup</option>
+          <option>Delivered</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Customer</th>
+              <th>Items</th>
+              <th>Status</th>
+              <th>ETA</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ordersBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel" id="tickets">
+        <div class="panel-title">
+          <div>
+            <h3>Support Tickets</h3>
+            <p>Issues created from WhatsApp bot replies or the app.</p>
+          </div>
+        </div>
+        <div id="ticketsList" class="list"></div>
+      </div>
+
+      <div class="panel" id="settings">
+        <div class="panel-title">
+          <div>
+            <h3>ETA Settings</h3>
+            <p>Default preparation buffer used when orders do not have an ETA.</p>
+          </div>
+        </div>
+        <form id="bufferForm" class="setting-form">
+          <label for="bufferInput">Default ETA buffer</label>
+          <div>
+            <input id="bufferInput" type="number" min="1" max="180" step="1">
+            <button type="submit">Update</button>
+          </div>
+          <div id="bufferSuggestion" class="suggestion"></div>
+        </form>
+        <div class="bot-card">
+          <h4>Bot Commands</h4>
+          <p><strong>status ORDERID</strong> returns current status.</p>
+          <p><strong>eta ORDERID</strong> returns estimated time.</p>
+          <p><strong>help ORDERID issue</strong> opens a ticket.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/dashboard.js"></script>
+</body>
+</html>

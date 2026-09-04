@@ -1,0 +1,27 @@
+services:
+  whatsapp-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: onfood-whatsapp-bot:latest
+    container_name: onfood-whatsapp-bot
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - PORT=3000
+      - WHATSAPP_HEADLESS=true
+      - DOCKER_CONTAINER=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+    # Chromium requires sufficient shared memory to avoid crashing on complex web pages
+    shm_size: '1gb'
+    volumes:
+      # Persist WhatsApp Web session to avoid rescanning QR code on restart
+      - ./.wwebjs_auth:/app/.wwebjs_auth
+      # Persist session cache
+      - ./.wwebjs_cache:/app/.wwebjs_cache
+      # Persist bot log file
+      - ./bot.log:/app/bot.log
