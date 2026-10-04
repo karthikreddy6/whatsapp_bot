@@ -378,8 +378,8 @@ INTERNAL_API_KEY=your_secure_internal_api_key_here
 # PostgreSQL Database (identical to support bot)
 PG_HOST=onfood-postgres
 PG_PORT=5432
-PG_USER=BUVVA
-PG_PASSWORD=BUVA@KR
+PG_USER=buvvadb
+PG_PASSWORD=buvvA@6
 PG_DATABASE=onfood
 ```
 
@@ -389,8 +389,8 @@ PORT=3000
 INTERNAL_API_KEY=your_secure_internal_api_key_here
 PG_HOST=onfood-postgres
 PG_PORT=5432
-PG_USER=BUVVA
-PG_PASSWORD=BUVA@KR
+PG_USER=buvvadb
+PG_PASSWORD=buvvA@6
 PG_DATABASE=onfood
 ```
 

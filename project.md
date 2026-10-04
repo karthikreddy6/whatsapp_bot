@@ -184,6 +184,7 @@ Firebase configuration is currently embedded in both `index.js` and `bot2.js`.
   5. Updated `docker-compose.yml` to define separate `customer-support` (port 3000) and `whatsapp-bot` (port 3001) containers.
   6. Added standalone launchers `start-support.ps1`, `start-whatsapp.ps1`, and `start-all.ps1`.
   7. Verified syntax with `npm run check` and tested `/api/summary` on standalone Customer Support server.
+  8. Updated PostgreSQL database credentials to user `buvvadb` and password `buvvA@6` across `support-server.js`, `docker-compose.yml`, and documentation.
 
 ## Maintenance Rule
 

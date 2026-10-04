@@ -18,8 +18,8 @@ services:
       - DOCKER_CONTAINER=true
       - PG_HOST=onfood-postgres
       - PG_PORT=5432
-      - PG_USER=BUVVA
-      - PG_PASSWORD=BUVA@KR
+      - PG_USER=buvvadb
+      - PG_PASSWORD=buvvA@6
       - PG_DATABASE=onfood
     networks:
       - default
@@ -50,8 +50,8 @@ services:
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
       - PG_HOST=onfood-postgres
       - PG_PORT=5432
-      - PG_USER=BUVVA
-      - PG_PASSWORD=BUVA@KR
+      - PG_USER=buvvadb
+      - PG_PASSWORD=buvvA@6
       - PG_DATABASE=onfood
     networks:
       - default

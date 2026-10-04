@@ -43,8 +43,8 @@ const isRunningInDocker = fs.existsSync('/.dockerenv') || Boolean(process.env.DO
 const pgPool = new Pool({
   host: process.env.PG_HOST || (isRunningInDocker ? 'onfood-postgres' : 'localhost'),
   port: Number(process.env.PG_PORT || 5432),
-  user: process.env.PG_USER || 'BUVVA',
-  password: process.env.PG_PASSWORD || 'BUVA@KR',
+  user: process.env.PG_USER || 'buvvadb',
+  password: process.env.PG_PASSWORD || 'buvvA@6',
   database: process.env.PG_DATABASE || 'onfood',
   max: 20,
   idleTimeoutMillis: 30000,
