@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OnFood — Order Status & Management</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Navigation Header -->
+  <header class="header">
+    <div class="brand">
+      <span style="font-size: 1.5rem;">📦</span>
+      <div>
+        <h1>OnFood Bot</h1>
+      </div>
+      <span class="badge">Kitchen & Orders</span>
+    </div>
+
+    <nav class="nav-links">
+      <a href="/index.html" class="nav-link" style="color: #10b981; font-weight: 700;">🎯 Support Desk</a>
+      <a href="/messages.html" class="nav-link">💬 Messages</a>
+      <a href="/orders.html" class="nav-link active">📦 Order Status</a>
+    </nav>
+
+    <div class="header-actions">
+      <div class="status-badge" id="whatsappStatus">
+        <span class="status-dot"></span>
+        <span id="statusText">Connecting</span>
+      </div>
+      <button class="btn-icon" id="openSettingsBtn">
+        <span>⚙️</span> Customize
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Top Summary Metrics -->
+    <section class="metrics-row" aria-label="Order statistics">
+      <div class="metric-card">
+        <span class="metric-label">Active Orders</span>
+        <span class="metric-value success" id="activeOrders">0</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Last 2 Hours</span>
+        <span class="metric-value" id="recentOrders">0</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Open Tickets</span>
+        <span class="metric-value warning" id="openTickets">0</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Avg Delivery</span>
+        <span class="metric-value" id="avgDelivery">0m</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Late Orders</span>
+        <span class="metric-value danger" id="lateOrders">0</span>
+      </div>
+    </section>
+
+    <!-- Main Grid: Live Orders & Support Tickets -->
+    <div class="orders-grid-layout">
+      <!-- Live Orders Section -->
+      <section class="panel-card">
+        <div class="panel-head">
+          <div>
+            <h2>Live Orders</h2>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+              Updating kitchen status automatically sends customized WhatsApp notifications with human-like delays.
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="orderSearch" class="search-box" style="width: 180px;" placeholder="Search order/phone...">
+            <select id="statusFilter" class="filter-select">
+              <option value="">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Preparing">Preparing</option>
+              <option value="Cooking">Cooking</option>
+              <option value="Ready for Pickup">Ready for Pickup</option>
+              <option value="Delivered">Delivered</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Status</th>
+                <th>ETA</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody">
+              <tr>
+                <td colspan="6" class="empty-state">Loading live orders...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Support Tickets & ETA Helper Section -->
+      <aside style="display: flex; flex-direction: column; gap: 20px;">
+        <!-- Tickets Panel -->
+        <div class="panel-card" style="flex: 1;">
+          <div class="panel-head">
+            <div>
+              <h2>Support Tickets</h2>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                Customer tickets generated via WhatsApp bot flow.
+              </p>
+            </div>
+          </div>
+          <div class="tickets-list" id="ticketsList">
+            <div class="empty-state">No support tickets.</div>
+          </div>
+        </div>
+
+        <!-- Preparation Buffer Quick Control -->
+        <div class="panel-card">
+          <div class="panel-head">
+            <h2>Preparation Buffer</h2>
+          </div>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px;">
+            Default minutes added for orders without explicit ETA.
+          </p>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="number" id="quickBufferInput" class="setting-input" style="width: 90px;" min="5" max="180">
+            <button class="btn-send" id="updateBufferBtn" style="height: 34px; padding: 0 14px; font-size: 0.85rem;">
+              Set Buffer
+            </button>
+          </div>
+          <div id="dynamicBufferTip" style="font-size: 0.8rem; color: var(--primary); margin-top: 8px; font-weight: 500;">
+            Suggested: 20m based on kitchen load
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Customization & Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚙️ Bot Customization & Controls</h3>
+        <button class="modal-close" id="closeSettingsBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Rate Limiting & Delays -->
+        <div class="setting-group">
+          <div class="setting-group-title">⏱️ Rate Limiting & Random Delays</div>
+          <div class="setting-group-desc">Vary send timings unpredictably to emulate human behavior and avoid automated bot detection.</div>
+          
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Minimum Delay (ms)</span>
+              <span>Shortest wait between message bursts</span>
+            </div>
+            <input type="number" id="minDelayMs" class="setting-input" min="500" max="30000" step="250">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Maximum Delay (ms)</span>
+              <span>Longest random delay before send</span>
+            </div>
+            <input type="number" id="maxDelayMs" class="setting-input" min="1000" max="60000" step="500">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Max Sends / Min (Per Recipient)</span>
+              <span>Limits rapid spamming to a single user</span>
+            </div>
+            <input type="number" id="perRecipientPerMinute" class="setting-input" min="1" max="30">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Max Sends / Min (Global Total)</span>
+              <span>System-wide hourly/minute cap</span>
+            </div>
+            <input type="number" id="globalPerMinute" class="setting-input" min="5" max="120">
+          </div>
+        </div>
+
+        <!-- Human-Like Behavior -->
+        <div class="setting-group">
+          <div class="setting-group-title">👤 User Interaction & Typing Simulation</div>
+          <div class="setting-group-desc">Simulate reading messages, typing speed, and variable response time.</div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Simulate "Typing..." State</span>
+              <span>Broadcasts typing indicator before sending</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="typingEnabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Simulate Read Receipts (Blue Ticks)</span>
+              <span>Sends seen status before preparing reply</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="readReceiptsEnabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Response Delay Min (ms)</span>
+              <span>Human reading and thinking wait time</span>
+            </div>
+            <input type="number" id="responseDelayMinMs" class="setting-input" min="500" max="15000" step="250">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Response Delay Max (ms)</span>
+              <span>Upper bound on reply delay</span>
+            </div>
+            <input type="number" id="responseDelayMaxMs" class="setting-input" min="1000" max="30000" step="500">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Typing Speed (Chars Per Minute)</span>
+              <span>Average is ~250-320 CPM</span>
+            </div>
+            <input type="number" id="typingSpeedCPM" class="setting-input" min="100" max="600" step="20">
+          </div>
+        </div>
+
+        <!-- Message Variety -->
+        <div class="setting-group">
+          <div class="setting-group-title">🎭 Message Variety</div>
+          <div class="setting-group-desc">Vary greeting formulations and status phrasing to prevent uniform robot signatures.</div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Enable Message Phrasing Variety</span>
+              <span>Randomizes greetings, status templates, and sign-offs</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="messageVariety">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Aggressive Error Throttling & Backoff -->
+        <div class="setting-group">
+          <div class="setting-group-title">🛡️ Error Throttling & Exponential Backoff</div>
+          <div class="setting-group-desc">If WhatsApp returns rate limits or errors, back off exponentially with jitter.</div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Initial Backoff Delay (ms)</span>
+              <span>Wait time on first error</span>
+            </div>
+            <input type="number" id="backoffBaseMs" class="setting-input" min="1000" max="60000" step="1000">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Backoff Multiplier</span>
+              <span>Factor multiplied on consecutive failures</span>
+            </div>
+            <input type="number" id="backoffMultiplier" class="setting-input" min="1.5" max="4.0" step="0.5">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Maximum Backoff Cap (ms)</span>
+              <span>Absolute maximum cool-off period</span>
+            </div>
+            <input type="number" id="backoffMaxMs" class="setting-input" min="10000" max="900000" step="10000">
+          </div>
+        </div>
+
+        <!-- Default Buffering Time -->
+        <div class="setting-group">
+          <div class="setting-group-title">⏱️ Order Preparation Buffer</div>
+          <div class="setting-group-desc">Default ETA addition in minutes for newly placed orders.</div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Default Buffer (minutes)</span>
+            </div>
+            <input type="number" id="bufferingTimeMinutes" class="setting-input" min="5" max="120" step="5">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-icon" id="resetDefaultsBtn">Reset to Defaults</button>
+        <button class="btn-send" id="saveSettingsBtn">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toastNotification">Settings Saved</div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/orders.js"></script>
+</body>
+</html>

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OnFood — WhatsApp Messages</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Navigation Header -->
+  <header class="header">
+    <div class="brand">
+      <span style="font-size: 1.5rem;">💬</span>
+      <div>
+        <h1>OnFood Bot</h1>
+      </div>
+      <span class="badge">WhatsApp Live</span>
+    </div>
+
+    <nav class="nav-links">
+      <a href="/index.html" class="nav-link" style="color: #10b981; font-weight: 700;">🎯 Support Desk</a>
+      <a href="/messages.html" class="nav-link active">💬 Messages</a>
+      <a href="/orders.html" class="nav-link">📦 Order Status</a>
+    </nav>
+
+    <div class="header-actions">
+      <div class="status-badge" id="whatsappStatus">
+        <span class="status-dot"></span>
+        <span id="statusText">Connecting</span>
+      </div>
+      <button class="btn-icon" id="openSettingsBtn">
+        <span>⚙️</span> Customize
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="chat-layout">
+      <!-- Left Contacts & Filter Panel -->
+      <aside class="contacts-panel">
+        <div class="contacts-header">
+          <h2>Conversations</h2>
+          <input type="text" id="contactSearch" class="search-box" placeholder="Search phone or name...">
+        </div>
+        <div class="contacts-list" id="contactsList">
+          <div class="empty-state">No messages received yet.</div>
+        </div>
+      </aside>
+
+      <!-- Right Chat Window -->
+      <section class="chat-window">
+        <div class="chat-header">
+          <div class="chat-header-info">
+            <h3 id="currentContactTitle">All Messages Feed</h3>
+            <p id="currentContactSubtitle">Showing all real-time WhatsApp incoming & outgoing traffic</p>
+          </div>
+          <div>
+            <button class="btn-icon" id="clearFilterBtn" style="display: none;">Show All</button>
+          </div>
+        </div>
+
+        <div class="messages-stream" id="messagesStream">
+          <div class="empty-state">Waiting for WhatsApp messages...</div>
+        </div>
+
+        <!-- Manual Quick Send Bar (Rate limited & delayed naturally) -->
+        <div class="chat-input-bar">
+          <input type="text" id="targetPhoneInput" class="search-box" style="max-width: 170px;" placeholder="Phone (10 digits)">
+          <input type="text" id="messageTextInput" class="chat-input" placeholder="Type a message to send via WhatsApp...">
+          <button class="btn-send" id="sendMsgBtn">
+            <span>Send</span>
+          </button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Customization & Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚙️ Bot Customization & Controls</h3>
+        <button class="modal-close" id="closeSettingsBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Rate Limiting & Delays -->
+        <div class="setting-group">
+          <div class="setting-group-title">⏱️ Rate Limiting & Random Delays</div>
+          <div class="setting-group-desc">Vary send timings unpredictably to emulate human behavior and avoid automated bot detection.</div>
+          
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Minimum Delay (ms)</span>
+              <span>Shortest wait between message bursts</span>
+            </div>
+            <input type="number" id="minDelayMs" class="setting-input" min="500" max="30000" step="250">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Maximum Delay (ms)</span>
+              <span>Longest random delay before send</span>
+            </div>
+            <input type="number" id="maxDelayMs" class="setting-input" min="1000" max="60000" step="500">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Max Sends / Min (Per Recipient)</span>
+              <span>Limits rapid spamming to a single user</span>
+            </div>
+            <input type="number" id="perRecipientPerMinute" class="setting-input" min="1" max="30">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Max Sends / Min (Global Total)</span>
+              <span>System-wide hourly/minute cap</span>
+            </div>
+            <input type="number" id="globalPerMinute" class="setting-input" min="5" max="120">
+          </div>
+        </div>
+
+        <!-- Human-Like Behavior -->
+        <div class="setting-group">
+          <div class="setting-group-title">👤 User Interaction & Typing Simulation</div>
+          <div class="setting-group-desc">Simulate reading messages, typing speed, and variable response time.</div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Simulate "Typing..." State</span>
+              <span>Broadcasts typing indicator before sending</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="typingEnabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Simulate Read Receipts (Blue Ticks)</span>
+              <span>Sends seen status before preparing reply</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="readReceiptsEnabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Response Delay Min (ms)</span>
+              <span>Human reading and thinking wait time</span>
+            </div>
+            <input type="number" id="responseDelayMinMs" class="setting-input" min="500" max="15000" step="250">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Response Delay Max (ms)</span>
+              <span>Upper bound on reply delay</span>
+            </div>
+            <input type="number" id="responseDelayMaxMs" class="setting-input" min="1000" max="30000" step="500">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Typing Speed (Chars Per Minute)</span>
+              <span>Average is ~250-320 CPM</span>
+            </div>
+            <input type="number" id="typingSpeedCPM" class="setting-input" min="100" max="600" step="20">
+          </div>
+        </div>
+
+        <!-- Message Variety -->
+        <div class="setting-group">
+          <div class="setting-group-title">🎭 Message Variety</div>
+          <div class="setting-group-desc">Vary greeting formulations and status phrasing to prevent uniform robot signatures.</div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Enable Message Phrasing Variety</span>
+              <span>Randomizes greetings, status templates, and sign-offs</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="messageVariety">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Aggressive Error Throttling & Backoff -->
+        <div class="setting-group">
+          <div class="setting-group-title">🛡️ Error Throttling & Exponential Backoff</div>
+          <div class="setting-group-desc">If WhatsApp returns rate limits or errors, back off exponentially with jitter.</div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Initial Backoff Delay (ms)</span>
+              <span>Wait time on first error</span>
+            </div>
+            <input type="number" id="backoffBaseMs" class="setting-input" min="1000" max="60000" step="1000">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Backoff Multiplier</span>
+              <span>Factor multiplied on consecutive failures</span>
+            </div>
+            <input type="number" id="backoffMultiplier" class="setting-input" min="1.5" max="4.0" step="0.5">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Maximum Backoff Cap (ms)</span>
+              <span>Absolute maximum cool-off period</span>
+            </div>
+            <input type="number" id="backoffMaxMs" class="setting-input" min="10000" max="900000" step="10000">
+          </div>
+        </div>
+
+        <!-- Default Buffering Time -->
+        <div class="setting-group">
+          <div class="setting-group-title">⏱️ Order Preparation Buffer</div>
+          <div class="setting-group-desc">Default ETA addition in minutes for newly placed orders.</div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Default Buffer (minutes)</span>
+            </div>
+            <input type="number" id="bufferingTimeMinutes" class="setting-input" min="5" max="120" step="5">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-icon" id="resetDefaultsBtn">Reset to Defaults</button>
+        <button class="btn-send" id="saveSettingsBtn">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toastNotification">Settings Saved</div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/messages.js"></script>
+</body>
+</html>

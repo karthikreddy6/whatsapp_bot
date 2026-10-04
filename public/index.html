@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OnFood — Customer Support Command Desk</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- Navigation Header -->
+  <header class="header">
+    <div class="brand">
+      <span style="font-size: 1.6rem;">🍔</span>
+      <div class="header-brand-title">
+        <h1>OnFood Support Desk</h1>
+        <span class="header-badge-live">
+          <span class="live-dot"></span> Live WS
+        </span>
+      </div>
+      <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">Command Center</span>
+    </div>
+
+    <div class="header-actions">
+      <!-- WebSocket Connectivity -->
+      <div class="status-badge online" id="wsStatus">
+        <span class="status-dot"></span>
+        <span id="wsStatusText">WS Live</span>
+      </div>
+
+      <!-- WhatsApp Service Status -->
+      <div class="status-badge" id="whatsappStatus">
+        <span class="status-dot"></span>
+        <span id="statusText">Connecting</span>
+      </div>
+
+      <!-- Quick Action: Delayed Orders Jump -->
+      <button class="btn-action-warning" id="jumpDelayedBtn" style="display: none;">
+        <span>🚨</span> <span id="delayedHeaderCount">0</span> Delayed
+      </button>
+
+      <!-- Quick Action: Toggle WhatsApp Side Desk -->
+      <button class="btn-action-whatsapp" id="toggleDrawerBtn">
+        <span>💬</span> WhatsApp Desk
+        <span class="badge-counter" id="drawerUnreadBadge" style="display: none;">0</span>
+      </button>
+
+      <!-- Quick Action: Raise Ticket -->
+      <button class="btn-icon" id="openNewTicketBtn" title="Create Support Ticket">
+        <span>➕</span> New Ticket
+      </button>
+
+      <!-- Bot Controls & Settings -->
+      <button class="btn-icon" id="openSettingsBtn" title="Bot Customization">
+        <span>⚙️</span> Settings
+      </button>
+    </div>
+  </header>
+
+  <main class="container" style="padding-top: 20px; padding-bottom: 50px;">
+
+    <!-- Executive KPI Analytics Row -->
+    <section class="kpi-row" aria-label="Executive Support Metrics">
+      <!-- 1. Today Orders & Revenue -->
+      <div class="kpi-card success">
+        <div class="kpi-header">
+          <span class="kpi-title">Today's Orders</span>
+          <span class="kpi-icon">🧾</span>
+        </div>
+        <div class="kpi-value" id="kpiTodayOrders">0</div>
+        <div class="kpi-subtext">
+          <span>Revenue:</span>
+          <strong id="kpiTodayRevenue" style="color: #34d399;">₹0</strong>
+          <span style="opacity: 0.6;">| All-time: <span id="kpiTotalOrders">0</span></span>
+        </div>
+      </div>
+
+      <!-- 2. Live Active Orders -->
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">Live Kitchen Orders</span>
+          <span class="kpi-icon">🍳</span>
+        </div>
+        <div class="kpi-value" id="kpiActiveOrders">0</div>
+        <div class="kpi-subtext" id="kpiActiveBreakdown">
+          <span>In Kitchen Pipeline</span>
+        </div>
+      </div>
+
+      <!-- 3. Flagged Delay Orders (Prominent Alert) -->
+      <div class="kpi-card danger" id="kpiDelayCard">
+        <div class="kpi-header">
+          <span class="kpi-title" style="color: #f87171;">Flagged Delayed Orders</span>
+          <span class="kpi-icon">🚨</span>
+        </div>
+        <div class="kpi-value" id="kpiDelayedOrders" style="color: #ef4444;">0</div>
+        <div class="kpi-subtext">
+          <span id="kpiDelayedSubtext">Exceeded Kitchen ETA</span>
+        </div>
+      </div>
+
+      <!-- 4. Open Support Tickets -->
+      <div class="kpi-card warning">
+        <div class="kpi-header">
+          <span class="kpi-title">Open Support Tickets</span>
+          <span class="kpi-icon">🎫</span>
+        </div>
+        <div class="kpi-value" id="kpiOpenTickets" style="color: #fbbf24;">0</div>
+        <div class="kpi-subtext">
+          <span>Replied: <strong id="kpiRepliedTickets">0</strong> | Res: <span id="kpiResolvedTickets">0</span></span>
+        </div>
+      </div>
+
+      <!-- 5. Avg Delivery & Dynamic Buffer -->
+      <div class="kpi-card purple">
+        <div class="kpi-header">
+          <span class="kpi-title">Avg Fulfillment</span>
+          <span class="kpi-icon">⏱️</span>
+        </div>
+        <div class="kpi-value" id="kpiAvgDelivery">0m</div>
+        <div class="kpi-subtext">
+          <span>Buffer: <strong id="kpiBufferTime">20m</strong> (Load: <span id="kpiDynamicBuffer">20m</span>)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- WS Live Support Charts Section -->
+    <section class="charts-grid" aria-label="Live WebSocket Analytics Charts">
+      <!-- Chart 1: Real-time Kitchen Pipeline -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">
+            <span>📊 Kitchen Pipeline Status</span>
+          </div>
+          <span class="chart-badge" id="chartPipelineBadge">Live Distribution</span>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <canvas id="pipelineChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Today Hourly Influx & Tickets Velocity -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">
+            <span>📈 Today's Hourly Influx Velocity</span>
+          </div>
+          <span class="chart-badge">Orders & Tickets Trend</span>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <canvas id="hourlyChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 3: On-Time SLA vs Delay Performance -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">
+            <span>🎯 SLA & Delay Performance</span>
+          </div>
+          <span class="chart-badge" id="slaRateBadge">100% On-Time</span>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <canvas id="slaChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Flagged Delay Orders Alert Banner (Dynamic Priority Queue) -->
+    <section class="priority-delay-section" id="priorityDelaySection" style="display: none;">
+      <div class="priority-delay-header">
+        <div class="priority-delay-title">
+          <span style="font-size: 1.3rem;">⚠️</span>
+          <span>URGENT: Delayed Orders Requiring Customer Support Intervention</span>
+          <span class="badge-counter" id="priorityDelayCount">0</span>
+        </div>
+        <div style="font-size: 0.8rem; color: #fca5a5;">
+          Click "Delay Alert" to send an instant proactive WhatsApp apology & updated ETA to the customer.
+        </div>
+      </div>
+      <div class="priority-delay-grid" id="priorityDelayGrid">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- Main Split View: Live Orders & Support Tickets -->
+    <div class="support-main-grid">
+
+      <!-- Left Column: Live Orders Workspace -->
+      <section class="panel-card">
+        <div class="panel-head" style="align-items: center;">
+          <div>
+            <h2>📦 Live Orders Management</h2>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+              Real-time synchronization with kitchen and automated WhatsApp notifications.
+            </p>
+          </div>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="table-toolbar">
+          <div class="filter-tabs" id="filterTabs">
+            <button class="filter-tab active" data-status="">All Orders</button>
+            <button class="filter-tab tab-delay" data-status="DELAYED" id="tabDelayedFilter">🚨 Delayed (<span id="tabDelayedCount">0</span>)</button>
+            <button class="filter-tab" data-status="Pending">Pending</button>
+            <button class="filter-tab" data-status="Preparing">Preparing</button>
+            <button class="filter-tab" data-status="Cooking">Cooking</button>
+            <button class="filter-tab" data-status="Ready for Pickup">Ready</button>
+            <button class="filter-tab" data-status="Delivered">Delivered</button>
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="orderSearch" class="search-box" style="width: 220px;" placeholder="Search order ID, phone, name...">
+          </div>
+        </div>
+
+        <!-- Orders Table -->
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Items & Total</th>
+                <th>Kitchen Status</th>
+                <th>ETA / Delay</th>
+                <th>Support Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody">
+              <tr>
+                <td colspan="6" class="empty-state">Loading live order stream...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Right Column: Support Tickets & Resolution Hub -->
+      <aside class="panel-card" style="display: flex; flex-direction: column;">
+        <div class="panel-head">
+          <div>
+            <h2>🎫 Support Tickets</h2>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+              Customer issues from WhatsApp bot. Replying sends WhatsApp to customer.
+            </p>
+          </div>
+          <button class="btn-icon" id="quickNewTicketBtn" style="padding: 4px 8px; font-size: 0.75rem;">
+            + New
+          </button>
+        </div>
+
+        <!-- Tickets Filter -->
+        <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+          <button class="filter-tab active" id="ticketFilterAll" style="padding: 4px 10px; font-size: 0.75rem;">All</button>
+          <button class="filter-tab" id="ticketFilterOpen" style="padding: 4px 10px; font-size: 0.75rem;">Open Only</button>
+          <button class="filter-tab" id="ticketFilterResolved" style="padding: 4px 10px; font-size: 0.75rem;">Resolved</button>
+        </div>
+
+        <div class="tickets-list" id="ticketsList" style="flex: 1; max-height: 600px; overflow-y: auto;">
+          <div class="empty-state">No active support tickets.</div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       WhatsApp Side Option (Collapsible Drawer / Slide-out Desk)
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="whatsapp-backdrop" id="drawerBackdrop"></div>
+
+  <aside class="whatsapp-drawer" id="whatsappDrawer">
+    <!-- Drawer Header -->
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <span style="font-size: 1.4rem;">💬</span>
+        <div>
+          <div>WhatsApp Support Desk</div>
+          <div style="font-size: 0.72rem; color: #8696a0; font-weight: normal;" id="drawerStatusSubtitle">
+            Live Stream & Two-Way Customer Chat
+          </div>
+        </div>
+      </div>
+      <button class="drawer-close" id="closeDrawerBtn" title="Close Desk">&times;</button>
+    </div>
+
+    <!-- Drawer Content -->
+    <div class="drawer-content">
+      <!-- Search contacts -->
+      <div style="padding: 8px 12px; background: #111b21;">
+        <input type="text" id="drawerContactSearch" class="drawer-msg-input" placeholder="Search phone number or contact...">
+      </div>
+
+      <!-- Recent Conversations Switcher -->
+      <div class="drawer-contacts" id="drawerContactsList">
+        <div class="empty-state" style="padding: 20px;">No messages received yet.</div>
+      </div>
+
+      <!-- Chat Area -->
+      <div class="drawer-chat-area">
+        <!-- Active Chat Header -->
+        <div style="padding: 8px 14px; background: #202c33; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2a3942;">
+          <div>
+            <div style="font-weight: 700; color: #e9edef; font-size: 0.9rem;" id="activeChatName">All Messages Feed</div>
+            <div style="font-size: 0.72rem; color: #8696a0;" id="activeChatPhone">Select a conversation or type phone below</div>
+          </div>
+          <button class="btn-bump" id="drawerClearFilterBtn" style="display: none; padding: 2px 8px; font-size: 0.7rem;">
+            Show All
+          </button>
+        </div>
+
+        <!-- Chat Stream -->
+        <div class="drawer-chat-stream" id="drawerMessagesStream">
+          <div class="empty-state">Waiting for WhatsApp messages...</div>
+        </div>
+
+        <!-- Canned Quick Response Chips -->
+        <div class="canned-macros-row">
+          <button class="canned-chip" data-text="Hello! How can I assist you with your OnFood order today?">👋 Greeting</button>
+          <button class="canned-chip" data-text="Your order is currently being freshly prepared and will be ready shortly!">⏱️ Preparing</button>
+          <button class="canned-chip" data-text="We sincerely apologize for the delay. Our chef is finishing packing it right now!">🙏 Apology Delay</button>
+          <button class="canned-chip" data-text="Your order is ready for pickup at the canteen counter. Please show your Order ID!">✅ Ready Pickup</button>
+          <button class="canned-chip" data-text="We have initiated a full refund for your order. It will reflect in your account shortly.">💳 Refund Issued</button>
+        </div>
+
+        <!-- Send Message Bar with Channel Selector -->
+        <div class="drawer-input-row" style="flex-direction: column; gap: 6px; align-items: stretch;">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="drawerTargetPhone" class="drawer-phone-input" placeholder="Phone (10 digits)" style="flex: 1;">
+            <select id="drawerChannelSelect" class="filter-select" style="padding: 6px 10px; font-size: 0.75rem; background: #111b21; border-color: #2a3942;">
+              <option value="APP" selected>📱 In-App Chat (Primary)</option>
+              <option value="WHATSAPP">💬 WhatsApp Fallback</option>
+              <option value="BOTH">⚡ Both (App + WA)</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="drawerMessageText" class="drawer-msg-input" placeholder="Type message to customer...">
+            <button class="drawer-send-btn" id="drawerSendBtn">
+              <span>Send</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Floating Action Button for WhatsApp Side Option -->
+  <div class="floating-whatsapp-trigger" id="floatingDrawerTrigger">
+    <span>💬</span>
+    <span>WhatsApp Live Desk</span>
+    <span class="badge-counter" id="floatingUnreadBadge" style="display: none;">0</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Modals
+       ═══════════════════════════════════════════════════════════════════ -->
+
+  <!-- Modal 1: Create Support Ticket -->
+  <div class="modal-overlay" id="newTicketModal">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>➕ Raise Customer Support Ticket</h3>
+        <button class="modal-close" id="closeNewTicketBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-row">
+          <div class="setting-label"><span>Order ID</span><span>12-character ID or leave blank</span></div>
+          <input type="text" id="ticketModalOrderId" class="setting-input" placeholder="e.g. OFD-12345678">
+        </div>
+        <div class="setting-row">
+          <div class="setting-label"><span>Customer Phone</span><span>10-digit mobile</span></div>
+          <input type="text" id="ticketModalPhone" class="setting-input" placeholder="9876543210">
+        </div>
+        <div class="setting-row">
+          <div class="setting-label"><span>Issue Category</span></div>
+          <select id="ticketModalCategory" class="filter-select" style="width: 100%;">
+            <option value="Delay in Order">Delay in Order</option>
+            <option value="Wrong Item / Missing Item">Wrong Item / Missing Item</option>
+            <option value="Food Quality Issue">Food Quality Issue</option>
+            <option value="Payment / Refund Request">Payment / Refund Request</option>
+            <option value="General Inquiry">General Inquiry</option>
+          </select>
+        </div>
+        <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+          <div class="setting-label"><span>Issue Description</span></div>
+          <textarea id="ticketModalDesc" class="chat-input" rows="3" placeholder="Enter customer complaint or notes..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-icon" id="cancelNewTicketBtn">Cancel</button>
+        <button class="btn-action-primary" id="submitNewTicketBtn">Create Ticket</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Delay Alert & Custom Bump ETA Modal -->
+  <div class="modal-overlay" id="delayAlertModal">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3>🚨 Send WhatsApp Delay Notification</h3>
+        <button class="modal-close" id="closeDelayAlertBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+          Extend kitchen ETA and automatically notify customer via WhatsApp with a polite delay message.
+        </p>
+        <div class="setting-row">
+          <div class="setting-label"><span>Order ID</span></div>
+          <input type="text" id="delayModalOrderId" class="setting-input" readonly>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label"><span>Customer</span></div>
+          <input type="text" id="delayModalCustomer" class="setting-input" readonly>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label"><span>Add Buffer Minutes</span><span>Extension from now</span></div>
+          <select id="delayModalMinutes" class="filter-select">
+            <option value="5">+5 Minutes</option>
+            <option value="10" selected>+10 Minutes</option>
+            <option value="15">+15 Minutes</option>
+            <option value="20">+20 Minutes</option>
+            <option value="30">+30 Minutes</option>
+          </select>
+        </div>
+        <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+          <div class="setting-label"><span>WhatsApp Message Preview</span></div>
+          <textarea id="delayModalMessage" class="chat-input" rows="4"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-icon" id="cancelDelayAlertBtn">Cancel</button>
+        <button class="btn-action-warning" id="submitDelayAlertBtn">Send WhatsApp & Bump ETA</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Bot Settings & Customization -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚙️ Bot Customization & Controls</h3>
+        <button class="modal-close" id="closeSettingsBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Rate Limiting & Delays -->
+        <div class="setting-group">
+          <div class="setting-group-title">⏱️ Rate Limiting & Random Delays</div>
+          <div class="setting-group-desc">Vary send timings unpredictably to emulate human behavior and avoid automated bot detection.</div>
+          
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Minimum Delay (ms)</span>
+              <span>Shortest wait between message bursts</span>
+            </div>
+            <input type="number" id="minDelayMs" class="setting-input" min="500" max="30000" step="250">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Maximum Delay (ms)</span>
+              <span>Longest random delay before send</span>
+            </div>
+            <input type="number" id="maxDelayMs" class="setting-input" min="1000" max="60000" step="500">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Max Sends / Min (Per Recipient)</span>
+              <span>Limits rapid spamming to a single user</span>
+            </div>
+            <input type="number" id="perRecipientPerMinute" class="setting-input" min="1" max="30">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Max Sends / Min (Global Total)</span>
+              <span>System-wide hourly/minute cap</span>
+            </div>
+            <input type="number" id="globalPerMinute" class="setting-input" min="5" max="120">
+          </div>
+        </div>
+
+        <!-- Human-Like Behavior -->
+        <div class="setting-group">
+          <div class="setting-group-title">👤 User Interaction & Typing Simulation</div>
+          <div class="setting-group-desc">Simulate reading messages, typing speed, and variable response time.</div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Simulate "Typing..." State</span>
+              <span>Broadcasts typing indicator before sending</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="typingEnabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Simulate Read Receipts (Blue Ticks)</span>
+              <span>Sends seen status before preparing reply</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="readReceiptsEnabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Response Delay Min (ms)</span>
+              <span>Human reading and thinking wait time</span>
+            </div>
+            <input type="number" id="responseDelayMinMs" class="setting-input" min="500" max="15000" step="250">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Response Delay Max (ms)</span>
+              <span>Upper bound on reply delay</span>
+            </div>
+            <input type="number" id="responseDelayMaxMs" class="setting-input" min="1000" max="30000" step="500">
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Typing Speed (Chars Per Minute)</span>
+              <span>Average is ~250-320 CPM</span>
+            </div>
+            <input type="number" id="typingSpeedCPM" class="setting-input" min="100" max="600" step="20">
+          </div>
+        </div>
+
+        <!-- Default Buffering Time -->
+        <div class="setting-group">
+          <div class="setting-group-title">⏱️ Order Preparation Buffer</div>
+          <div class="setting-group-desc">Default ETA addition in minutes for newly placed orders.</div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Default Buffer (minutes)</span>
+            </div>
+            <input type="number" id="bufferingTimeMinutes" class="setting-input" min="5" max="120" step="5">
+          </div>
+        </div>
+
+        <!-- Bot Relay & Auto-Response Customization -->
+        <div class="setting-group">
+          <div class="setting-group-title">🤖 Bot Relay & Automated Reply Customization</div>
+          <div class="setting-group-desc">Configure automated triage, hand-off to human support, and custom canned bot responses.</div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Enable Bot Auto-Replies</span>
+              <span>When disabled, bot is silent and all incoming messages wait for human support</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="botRelayEnabled" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Bot Operational Relay Mode</span>
+              <span>Automation vs Human Hand-off</span>
+            </div>
+            <select id="botRelayMode" class="filter-select" style="width: 220px;">
+              <option value="auto">Auto (Full Bot Automation)</option>
+              <option value="hybrid" selected>Hybrid (Hand-off on Ticket)</option>
+              <option value="manual">Manual (Staff Only, No Bot)</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Hand-off on Active Ticket</span>
+              <span>Silence bot replies for customer once a support ticket is opened</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="relayToHumanOnTicket" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Auto-Reply Simulated Delay (seconds)</span>
+              <span>Wait time before bot dispatches response</span>
+            </div>
+            <input type="number" id="autoReplyDelaySec" class="setting-input" min="0" max="30" step="1">
+          </div>
+
+          <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
+            <div class="setting-label"><span>Custom Greeting Template</span><span>Dispatched on "Hi", "Hello", "Start"</span></div>
+            <textarea id="customGreeting" class="chat-input" rows="2" placeholder="Enter greeting template..."></textarea>
+          </div>
+
+          <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
+            <div class="setting-label"><span>Custom Help & Issue Intake Menu</span><span>Dispatched on "Help"</span></div>
+            <textarea id="customHelpMenu" class="chat-input" rows="4" placeholder="Enter help menu options..."></textarea>
+          </div>
+
+          <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
+            <div class="setting-label"><span>Custom Delay Apology Template</span><span>Used when informing user about kitchen delays</span></div>
+            <textarea id="customDelayApology" class="chat-input" rows="2" placeholder="Enter delay apology message..."></textarea>
+          </div>
+
+          <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
+            <div class="setting-label"><span>Custom Ready for Pickup Template</span><span>Sent when order is ready at counter</span></div>
+            <textarea id="customReadyMessage" class="chat-input" rows="2" placeholder="Enter ready for pickup message..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-icon" id="resetDefaultsBtn">Reset to Defaults</button>
+        <button class="btn-send" id="saveSettingsBtn">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Live Two-Way WSS Customer Support Chat -->
+  <div class="modal-overlay" id="ticketChatModal">
+    <div class="modal-content" style="max-width: 650px; height: 85vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.4rem;">💬</span>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h3 id="ticketChatTitle" style="margin: 0; font-size: 1.05rem;">Ticket #TK-101</h3>
+              <span class="header-badge-live" style="font-size: 0.65rem;">
+                <span class="live-dot"></span> WSS Live
+              </span>
+            </div>
+            <div id="ticketChatSubtitle" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+              Customer: John Doe (9876543210) | Order #ORD-2026-0042
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <select id="ticketChatStatusSelect" class="filter-select" style="padding: 4px 10px; font-size: 0.8rem;">
+            <option value="OPEN">Open</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="RESOLVED">Resolved</option>
+          </select>
+          <button class="modal-close" id="closeTicketChatBtn">&times;</button>
+        </div>
+      </div>
+
+      <!-- Ticket & Order Brief Banner -->
+      <div id="ticketChatOrderBar" style="background: rgba(30, 41, 59, 0.7); border-radius: 8px; padding: 10px 14px; margin: 12px 0 6px 0; font-size: 0.82rem; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.06);">
+        <div id="ticketChatOrderDetails">
+          <strong>Order:</strong> Loading details...
+        </div>
+        <div id="ticketChatOrderActions" style="display: flex; gap: 6px; align-items: center;">
+          <a id="ticketCallCustomerBtn" class="btn-bump" href="#" style="text-decoration: none; display: none; background: rgba(34, 197, 94, 0.2); border-color: rgba(34, 197, 94, 0.4); color: #4ade80;" title="Call customer directly if no response on WhatsApp/Chat">📞 Call Customer</a>
+          <a id="ticketSmsCustomerBtn" class="btn-bump" href="#" style="text-decoration: none; display: none; background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.3); color: #38bdf8;" title="Send direct SMS to customer">✉️ SMS</a>
+          <button class="btn-bump" id="ticketChatBumpBtn">+10m ETA</button>
+        </div>
+      </div>
+
+      <!-- Chat Stream -->
+      <div class="ticket-chat-stream" id="ticketChatStream" style="flex: 1; overflow-y: auto; padding: 12px 6px; display: flex; flex-direction: column; gap: 10px;">
+        <div class="empty-state">Loading conversation history...</div>
+      </div>
+
+      <!-- Live Typing Indicator -->
+      <div id="ticketTypingIndicator" style="display: none; font-size: 0.75rem; color: #38bdf8; font-style: italic; padding: 0 8px 4px 8px;">
+        <span class="typing-dots">•••</span> Customer is typing...
+      </div>
+
+      <!-- Canned Quick Macro Chips -->
+      <div class="canned-macros-row" style="padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.05);">
+        <button class="canned-chip ticket-canned-chip" data-text="Hello! Support team here, how can I help you?">👋 Greeting</button>
+        <button class="canned-chip ticket-canned-chip" data-text="Your order is currently being freshly cooked and will be ready in 5-10 mins.">🍳 Cooking</button>
+        <button class="canned-chip ticket-canned-chip" data-text="Your order is ready for pickup! Please come to the canteen counter.">✅ Ready</button>
+        <button class="canned-chip ticket-canned-chip" data-text="We apologize for the delay. We are expediting it now!">🙏 Apology</button>
+        <button class="canned-chip ticket-canned-chip" data-text="Your issue has been marked resolved. Thank you!">🎉 Resolved</button>
+      </div>
+
+      <!-- Message Input Row with Channel Selection -->
+      <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Reply Via:</span>
+            <div class="channel-pill-group" id="ticketChatChannelGroup">
+              <button type="button" class="channel-pill active" data-channel="APP" title="Primary: Delivers directly to customer In-App chat">📱 In-App Chat (Primary)</button>
+              <button type="button" class="channel-pill" data-channel="WHATSAPP" title="Fallback: Dispatches message to WhatsApp">💬 WhatsApp Fallback</button>
+              <button type="button" class="channel-pill" data-channel="BOTH" title="Broadcast: Delivers to both In-App and WhatsApp">⚡ Both (App + WA)</button>
+            </div>
+          </div>
+          <span style="font-size: 0.72rem; color: #8696a0;" id="channelHintText">Primary: Delivers instantly to customer inside the OnFood mobile app</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="text" id="ticketChatInput" class="drawer-msg-input" placeholder="Type response to customer..." style="flex: 1;">
+          <button class="btn-action-primary" id="ticketChatSendBtn" style="padding: 8px 20px; font-size: 0.85rem;">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toastNotification">Action Successful</div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/support.js"></script>
+</body>
+</html>

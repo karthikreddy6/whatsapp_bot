@@ -1,11 +1,12 @@
 services:
-  whatsapp-bot:
+  customer-support:
     build:
       context: .
       dockerfile: Dockerfile
-    image: onfood-whatsapp-bot:latest
-    container_name: onfood-whatsapp-bot
+    image: onfood-customer-support:latest
+    container_name: onfood-customer-support
     restart: unless-stopped
+    command: ["node", "support-server.js"]
     ports:
       - "${PORT:-3000}:3000"
     env_file:
@@ -13,13 +14,56 @@ services:
         required: false
     environment:
       - PORT=3000
+      - WHATSAPP_SERVICE_URL=http://whatsapp-bot:3001
+      - DOCKER_CONTAINER=true
+      - PG_HOST=onfood-postgres
+      - PG_PORT=5432
+      - PG_USER=BUVVA
+      - PG_PASSWORD=BUVA@KR
+      - PG_DATABASE=onfood
+    networks:
+      - default
+      - onfoodserver_default
+    volumes:
+      - ./public:/app/public
+      - ./support-server.js:/app/support-server.js
+      - ./shared.js:/app/shared.js
+
+  whatsapp-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: onfood-whatsapp-bot:latest
+    container_name: onfood-whatsapp-bot
+    restart: unless-stopped
+    command: ["node", "whatsapp-service.js"]
+    ports:
+      - "${WHATSAPP_PORT:-3001}:3001"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - WHATSAPP_PORT=3001
+      - SUPPORT_SERVICE_URL=http://customer-support:3000
       - WHATSAPP_HEADLESS=true
       - DOCKER_CONTAINER=true
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-    # Chromium requires sufficient shared memory to avoid crashing on complex web pages
+      - PG_HOST=onfood-postgres
+      - PG_PORT=5432
+      - PG_USER=BUVVA
+      - PG_PASSWORD=BUVA@KR
+      - PG_DATABASE=onfood
+    networks:
+      - default
+      - onfoodserver_default
     shm_size: '1gb'
     volumes:
-      # Persist WhatsApp Web session to avoid rescanning QR code on restart
       - ./.wwebjs_auth:/app/.wwebjs_auth
-      # Persist session cache
       - ./.wwebjs_cache:/app/.wwebjs_cache
+      - ./whatsapp-service.js:/app/whatsapp-service.js
+      - ./shared.js:/app/shared.js
+
+networks:
+  default:
+  onfoodserver_default:
+    external: true

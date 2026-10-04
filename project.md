@@ -4,55 +4,57 @@
 
 This project is a Node.js service for the OnFood canteen. It combines a
 WhatsApp customer-support bot with a live web dashboard for monitoring orders
-and support tickets stored in Firebase Realtime Database.
+and support tickets stored in local PostgreSQL (`onfood` database).
 
 ## Current Application
 
-`index.js` is the active entry point (`npm start`). It:
+The architecture is cleanly separated into two independent services to ensure WhatsApp/Puppeteer browser bugs or crashes never affect the Customer Support Command Center:
 
-- serves the dashboard from `public/` through Express;
-- listens to `Orders`, `Tickets`, and `buffering_time/time` in Firebase
-  Realtime Database;
-- pushes live dashboard state through Socket.IO;
-- lets staff change an order status, set an ETA, resolve/reply to tickets, and
-  change the default ETA buffer;
-- sends customer WhatsApp notifications for new orders and status changes;
-- exposes a protected internal OTP-delivery endpoint for the FastAPI account
-  registration flow; and
-- accepts WhatsApp messages for FAQs, order status, ETAs, and a guided support
-  ticket flow; and
-- alerts the configured canteen contact about orders stuck in one status for
-  more than 15 minutes.
+1. **Customer Support Service (`support-server.js`)**:
+   - Runs independently on port 3000 (`npm run start:support`).
+   - Serves the dashboard from `public/` through Express and Socket.IO.
+   - Connects to PostgreSQL (`orders`, `order_items`, `users`, `support_tickets`, `support_messages`, `bot_settings`).
+   - Handles all dashboard actions, order status changes, ETAs, support tickets, and live chat.
+   - Completely free of Puppeteer / Chromium dependencies (zero browser crash risk).
+   - Bridges to WhatsApp microservice over HTTP (`http://127.0.0.1:3001`) with graceful fallback when WhatsApp is offline.
+   - Relays FastAPI registration OTP requests to the WhatsApp microservice.
 
-`bot2.js` is an older, separate WhatsApp/Firebase implementation. It is not
-run by the package scripts and should be treated as reference/legacy code
-unless explicitly revived.
+2. **WhatsApp Microservice (`whatsapp-service.js`)**:
+   - Runs on port 3001 (`npm run start:whatsapp`).
+   - Dedicated service for `whatsapp-web.js`, Puppeteer/Chromium, session authentication, and QR display.
+   - Sequential rate-limited queue, human typing indicators, and backoff handling.
+   - Bot conversational engine (FAQs, status inquiries, problem reports).
+   - Forwards inbound messages and ticket creations to Customer Support server via internal HTTP webhooks.
 
-`test.js` is a small, unrelated Express hello-endpoint experiment and is not
-part of the support dashboard.
+3. **Supervisor Orchestrator (`index.js`)**:
+   - Main entry point (`npm start` or `npm run start:all`).
+   - Starts Customer Support server in the main process.
+   - Spawns WhatsApp microservice as an isolated child process with automatic crash recovery (if WhatsApp crashes or restarts, Customer Support Desk remains 100% online).
 
 ## Main Files
 
 | Path | Role |
 | --- | --- |
-| `index.js` | Express + Socket.IO server, Firebase listeners, and WhatsApp bot. |
-| `public/dashboard.html` | Dashboard structure. |
-| `public/dashboard.js` | Live dashboard rendering and API actions. |
-| `public/styles.css` | Dashboard styling and responsive layout. |
-| `bot2.js` | Legacy order-notification bot. |
-| `database_organization.txt` | Documented Firebase data model. |
-| `start-dashboard.ps1` | Local launcher that defaults to port 3000 with WhatsApp disabled. |
+| `support-server.js` | Dedicated Customer Support Express + Socket.IO server and PostgreSQL engine. |
+| `whatsapp-service.js` | Dedicated WhatsApp microservice with Puppeteer, session, and anti-ban queue. |
+| `index.js` | Master supervisor running Customer Support and managing isolated WhatsApp worker. |
+| `shared.js` | Shared status mappers, normalizers, phone formatters, and configuration defaults. |
+| `public/index.html` | Unified Customer Support Command Desk with WS live charts & WhatsApp drawer. |
+| `public/support.js` | Live dashboard rendering, Chart.js WebSocket charts, and API actions. |
+| `public/styles.css` | Support Desk styling, chart layouts, and WhatsApp drawer. |
+| `start-support.ps1` | PowerShell launcher for standalone Customer Support server (port 3000). |
+| `start-whatsapp.ps1`| PowerShell launcher for standalone WhatsApp microservice (port 3001). |
+| `start-all.ps1`     | PowerShell launcher for supervisor running both services. |
 
-## Data Model Used
+## Data Model (PostgreSQL)
 
-- `Orders/{orderId}`: customer details, ordered items, amount, status,
-  timestamps, and ETA.
-- `Tickets/{orderId}`: one support ticket per order; includes description,
-  status, timestamp, and optionally customer phone.
-- `buffering_time/time`: global default ETA in minutes.
+- `orders`: `id` (UUID), `user_id`, `status` (`order_status` enum: `PLACED`, `PREPARING`, `READY_FOR_PICKUP`, `DELIVERED`, `CANCELLED`), `total_amount`, `estimated_ready_at`, `created_at`, `updated_at`.
+- `order_items`: `id` (UUID), `order_id` (UUID), `menu_item_id` (UUID), `quantity`, `price_at_time_of_order`.
+- `users`: `id`, `name`, `phone`, `email`.
+- `support_tickets`: `id` (UUID), `user_id`, `order_id`, `subject`, `message`, `status` (`ticket_status` enum: `OPEN`, `IN_PROGRESS`, `RESOLVED`), `created_at`, `updated_at`.
+- `support_messages`: `id` (UUID), `ticket_id` (UUID), `sender_type`, `sender_id`, `sender_name`, `message`, `created_at`.
+- `bot_settings`: `key` (`config`), `value` (JSONB), `updated_at`.
 
-Recognized statuses are: `Pending`, `Preparing`, `Cooking`, `Ready for
-Pickup`, `Delivered`, and `Cancelled`.
 
 ## Dashboard API
 
@@ -171,6 +173,17 @@ Firebase configuration is currently embedded in both `index.js` and `bot2.js`.
 - Added a WhatsApp typing indicator and short variable response delay so the
   rule-based support flow feels conversational; it can be disabled with
   `HUMAN_TYPING_ENABLED=false`.
+
+### 2026-10-04
+
+- Decoupled WhatsApp Web engine and Customer Support Command Center into independent services:
+  1. `support-server.js`: Pure Node.js Express + Socket.IO + PostgreSQL support desk running on port 3000 with zero Puppeteer/Chromium dependencies.
+  2. `whatsapp-service.js`: Dedicated microservice on port 3001 handling WhatsApp Web sessions, QR code, anti-detection delays, and auto-replies.
+  3. `index.js`: Process supervisor that runs Customer Support server and launches the WhatsApp microservice as an isolated worker with automatic crash recovery.
+  4. `shared.js`: Extracted common status mappings, normalizers, and configuration helpers.
+  5. Updated `docker-compose.yml` to define separate `customer-support` (port 3000) and `whatsapp-bot` (port 3001) containers.
+  6. Added standalone launchers `start-support.ps1`, `start-whatsapp.ps1`, and `start-all.ps1`.
+  7. Verified syntax with `npm run check` and tested `/api/summary` on standalone Customer Support server.
 
 ## Maintenance Rule
 
